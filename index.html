@@ -68,8 +68,31 @@ function calendar(){
 function eventHTML(e){return `<div class="event"><div class="eventTop"><div><b>${esc(e.title)}</b><div class="meta">${e.time?esc(e.time)+" · ":""}${esc(e.place||"")}</div></div><button class="icon delE" data-id="${e.id}">🗑️</button></div>${e.note?`<div class="small">${esc(e.note)}</div>`:""}<span class="pill">🔔 ${esc(e.reminder||"без напоминания")}</span></div>`}
 function eventFields(){return `<label>Событие / appointment / дело</label><input id="eTitle" required><div class="row"><div><label>Дата</label><input id="eDate" type="date" value="${selectedDate}" required></div><div><label>Время</label><input id="eTime" type="time"></div></div><label>Место</label><input id="ePlace" placeholder="Адрес или место"><label>Напоминание</label><select id="eReminder"><option>за 1 час</option><option>за 1 день</option><option>за 30 минут</option><option>за 10 минут</option><option>без напоминания</option></select><label>Заметка</label><textarea id="eNote"></textarea><div class="small">Напоминание внутри этой веб-версии не является гарантированным системным push-уведомлением iPhone.</div>`}
 function notes(){
- $("#pageTitle").textContent="Заметки";$("#content").innerHTML=state.notes.length?state.notes.map(n=>`<div class="note"><div class="eventTop"><h3>${esc(n.title)}</h3><button class="icon delN" data-id="${n.id}">🗑️</button></div><p>${esc(n.text)}</p><div class="small">${esc(n.created)}</div></div>`).join(""):'<div class="card empty">Заметок пока нет. Нажми +, чтобы создать.</div>';
- document.querySelectorAll(".delN").forEach(b=>b.onclick=()=>{state.notes=state.notes.filter(n=>n.id!==b.dataset.id);save();render()})
+ $("#pageTitle").textContent="Заметки";
+ $("#content").innerHTML=state.notes.length?state.notes.map(n=>`<div class="note">
+   <div class="eventTop">
+     <h3>${esc(n.title)}</h3>
+     <div>
+       <button class="icon editN" data-id="${n.id}" title="Редактировать">✎</button>
+       <button class="icon delN" data-id="${n.id}" title="Удалить">🗑️</button>
+     </div>
+   </div>
+   <p>${esc(n.text)}</p>
+   <div class="small">${esc(n.updated||n.created)}</div>
+ </div>`).join(""):'<div class="card empty">Заметок пока нет. Нажми +, чтобы создать.</div>';
+
+ document.querySelectorAll(".editN").forEach(b=>b.onclick=()=>{
+   const n=state.notes.find(x=>x.id===b.dataset.id);
+   if(!n)return;
+   openDlg("Редактировать заметку",
+     `<label>Название</label><input id="nTitle" value="${esc(n.title)}" required>
+      <label>Текст</label><textarea id="nText" required>${esc(n.text)}</textarea>`,
+     "noteEdit",n.id);
+ });
+
+ document.querySelectorAll(".delN").forEach(b=>b.onclick=()=>{
+   state.notes=state.notes.filter(n=>n.id!==b.dataset.id);save();render()
+ })
 }
 $("#plus").onclick=()=>{if(tab==="week")openDlg("Новое повторяющееся дело",taskFields(),"recurring");else if(tab==="calendar")openDlg("Новое событие",eventFields(),"event");else openDlg("Новая заметка",`<label>Название</label><input id="nTitle" required><label>Текст</label><textarea id="nText" required></textarea>`,"note")};
 $("#cancel").onclick=()=>$("#dlg").close();
@@ -77,7 +100,22 @@ document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{tab=b.dataset.tab;re
 $("#form").addEventListener("submit",()=>{
  if(mode==="recurring"){let obj={id:editId||("r"+Date.now()),title:$("#fTitle").value.trim(),weekday:+$("#fWeekday").value,category:$("#fCat").value};if(editId){let i=state.recurring.findIndex(x=>x.id===editId);state.recurring[i]=obj}else state.recurring.push(obj)}
  if(mode==="event"){state.events.push({id:"e"+Date.now(),title:$("#eTitle").value.trim(),date:$("#eDate").value,time:$("#eTime").value,place:$("#ePlace").value.trim(),reminder:$("#eReminder").value,note:$("#eNote").value.trim()});selectedDate=$("#eDate").value}
- if(mode==="note"){state.notes.unshift({id:"n"+Date.now(),title:$("#nTitle").value.trim(),text:$("#nText").value.trim(),created:fmt(new Date(),{day:"numeric",month:"long",year:"numeric"})})}
+ if(mode==="note"){
+   state.notes.unshift({
+     id:"n"+Date.now(),
+     title:$("#nTitle").value.trim(),
+     text:$("#nText").value.trim(),
+     created:fmt(new Date(),{day:"numeric",month:"long",year:"numeric"})
+   })
+ }
+ if(mode==="noteEdit"){
+   const n=state.notes.find(x=>x.id===editId);
+   if(n){
+     n.title=$("#nTitle").value.trim();
+     n.text=$("#nText").value.trim();
+     n.updated="Изменено: "+fmt(new Date(),{day:"numeric",month:"long",year:"numeric"})
+   }
+ }
  save();setTimeout(render,0)
 });
 if("serviceWorker"in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
